@@ -1,0 +1,6 @@
+data/*
+results/*
+archives
+
+__pycache__
+*.komodoproject
