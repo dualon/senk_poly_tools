@@ -41,6 +41,7 @@ class EdfContainer(object):
 		self.digital_max 				= None
 		self.prefiltering 				= None
 		self.num_of_samples_per_record 	= None
+		self.sample_freq				= None
 
 		self.annotations 				= []
 		self.data 						= []

@@ -10,26 +10,37 @@
 
 """
 
+import sys
 import os
 import argparse
 import pprint
 import datetime
 import numpy as np
+from math import floor
 import matplotlib.pyplot as plt
-from edf_container import EdfContainer
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from senk_poly_tools.edf_container import EdfContainer
 
 class SenkPolyTools(object):
 	
 	annot_label = 'EDF Annotations'
 	
-	def openEdfFile(self, file_path):
+	def createEdfContainer(self, file_name):
 		""" Open an EDF(+) file and return an empty EdfContainer object. """
 		
-		if not os.path.isfile(file_path):
-			raise FileNotFoundError("File '{}' not found!".format(file_path))
+		abs_path = os.path.abspath(os.path.join(
+			os.path.dirname(__file__),
+			'..',
+			'data',
+			file_name
+		))
 		
-		e = EdfContainer(file_path)
-		e.file_obj = open(file_path, 'rb')
+		if not os.path.isfile(abs_path):
+			raise FileNotFoundError("File '{}' not found!".format(abs_path))
+		
+		e = EdfContainer(abs_path)
+		e.file_obj = open(abs_path, 'rb')
 		
 		return e
 	
@@ -40,7 +51,7 @@ class SenkPolyTools(object):
 			Existing headers are overwritten.
 			
 			param e: (empty) EdfContainer object,
-				see SenkPolyTools.openEdfFile()
+				see SenkPolyTools.createEdfContainer()
 			returns EdfContainer with loaded headers
 		"""
 		
@@ -74,15 +85,15 @@ class SenkPolyTools(object):
 		)
 		
 		e.num_of_bytes_in_header = int(f.read(8))
-		edf_type = f.read(44)[:5]
-		e.edf_type = edf_type.decode(encoding='ASCII')
-		e.num_of_records = int(f.read(8))
-		e.record_duration = float(f.read(8))
-		e.num_of_signals = int(f.read(4))
+		edf_type 				= f.read(44)[:5]
+		e.edf_type 				= edf_type.decode(encoding='ASCII')
+		e.num_of_records 		= int(f.read(8))
+		e.record_duration 		= float(f.read(8))
+		e.num_of_signals 		= int(f.read(4))
 		
 		nsr = range(e.num_of_signals)
 		#print(nsr)
-		e.labels = [f.read(16).strip().decode(encoding='ASCII') for _ in nsr]
+		e.labels 				= [f.read(16).strip().decode(encoding='ASCII') for _ in nsr]
 		e.transducer_types 		= [f.read(80).strip().decode(encoding='ASCII') for _ in nsr]
 		
 		e.physical_dimension 	= [f.read(8).strip().decode(encoding='ASCII') for _ in nsr] # physical_dimensions: uV, cm/s, %, mV, ...
@@ -93,6 +104,8 @@ class SenkPolyTools(object):
 		e.gain 					= (e.physical_max - e.physical_min) / (e.digital_max - e.digital_min) # numpy arrays
 		e.prefiltering 			= [f.read(80).strip() for _ in nsr]
 		e.num_of_samples_per_record = [int(f.read(8)) for _ in nsr]
+		
+		e.sample_freq			= [ns/e.record_duration for ns in e.num_of_samples_per_record] # in Hertz
 		
 		# reserved bytes for each signal
 		f.read(32 * e.num_of_signals)
@@ -113,7 +126,7 @@ class SenkPolyTools(object):
 		"""
 		
 		if e.file_obj is None:
-			raise AttributeError("EdfContainer.file_obj is missing, use SenkPolyTools.openEdfFile() to create a file stream.")
+			raise AttributeError("EdfContainer.file_obj is missing, use SenkPolyTools.createEdfContainer() to create a file stream.")
 		
 		err_msg = "EdfContainer.{} is missing, call SenkPolyTools.loadEdfHeaders()."
 		if e.num_of_records is None:
@@ -159,6 +172,7 @@ class SenkPolyTools(object):
 					
 					# list extension + numpy arrayconversion at the end
 					# is faster than converting each record to numpy array
+					# @TODO: consider numpy.r_
 					phys = phys.tolist()
 					data[k].extend(phys) # note the 'k' index
 					
@@ -171,7 +185,7 @@ class SenkPolyTools(object):
 		return e
 
 	
-	def printEdfHeader(self, e):
+	def printEdfHeaders(self, e):
 		edf_h = vars(e)
 		pprint.pprint(edf_h)
 	
@@ -211,6 +225,42 @@ class SenkPolyTools(object):
 		
 		plt.savefig(os.path.join('..', 'results', '{}.png'.format(edf.file_basename)))
 		plt.close()
+	
+	
+	def smoothByAvg(self, x, window_len = 3):
+		""" Smooth a curve with moving average.
+		
+			A series of overlapping, window_len length sections are created from the data (these are the moving windows), and they are convoluted against ones.
+			
+			Smoothing by moving average is a basic smoothing function for non-periodic functions (as TCD data is typically not periodic, for example; see FFT for periodic data).
+			
+			param x numpy array containing the data (typically a channel)
+			param window_len int, the length of the moving window
+			returns a numpy array of the smoothed data
+		"""
+		s = np.r_[ x[window_len-1:0:-1], x, x[-1:-window_len:-1] ]
+		w = np.ones(window_len,'d')
+		c = np.convolve(w/w.sum(), s, mode='valid')
+		
+		# the smoothed array will have the length of (the original array + window_len -1),
+		# but the first window_len-1 points are not averaged
+		# -> cut window_len/2 points at the start of the results
+		return c[floor(window_len/2):]
+	
+		
+	
+	#def findMin(self, x):
+	#	"""
+	#		
+	#		@TODO: consider http://docs.scipy.org/doc/scipy/reference/signal.html
+	#	"""
+	#	arr_len = len(arr)
+	#	window = 50 # 
+	#	
+	#	for i in range(arr_len):
+	#		
+		
+	
 
 
 
@@ -223,9 +273,36 @@ if __name__ == '__main__':
 	
 	spt = SenkPolyTools()
 	
-	edfc = spt.openEdfFile(os.path.join('..', 'data', args.edf))
+	edfc = spt.createEdfContainer(os.path.join('..', 'data', args.edf))
 	edfc = spt.loadEdfHeaders(edfc)
-	spt.printEdfHeader(edfc)
+	#spt.printEdfHeaders(edfc)
 	edfc = spt.loadEdfData(edfc)
 	
-	spt.visualizeEdf(edfc)
+	#sm_ch = spt.smooth(edfc.data[23])
+	print(edfc.data_labels)
+	fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(30, 8), dpi=300)
+	fig.tight_layout()
+	
+	y1 = edfc.data[19][0:1000]
+	x1 = np.arange(1000)
+	ax1.plot(x1, y1, color='#404040', alpha=0.5)
+	
+	y2 = spt.smoothByAvg(edfc.data[19][0:1000])
+	x2 = np.arange(y2.shape[0])
+	ax1.plot(x2, y2, color='#AA0000', alpha=0.5)
+	
+	ax1.set_title(edfc.data_labels[19] + ' Original (grey) vs Smooth (red)', loc='left')
+	
+	y3 = edfc.data[23][0:1000]
+	ax2.plot(x1, y3, color='#404040', alpha=0.5)
+	
+	y4 = spt.smoothByAvg(edfc.data[23][0:1000])
+	x4 = np.arange(y4.shape[0])
+	ax2.plot(x4, y4, color='#AA0000', alpha=0.5)
+	
+	ax2.set_title(edfc.data_labels[23] + ' Original (grey) vs Smooth (red)', loc='left')
+	
+	plt.savefig(os.path.join('..', 'results', '{}_orig_vs_smoothbyavg.png'.format(edfc.file_basename)))
+	plt.close()
+	
+	#spt.visualizeEdf(edfc)
