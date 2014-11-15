@@ -238,6 +238,9 @@ class SenkPolyTools(object):
 			param window_len int, the length of the moving window
 			returns a numpy array of the smoothed data
 		"""
+		if len(x) < window_len:
+			raise Exception("SenkPolyTools.smoothByAvg: data length < window_len")
+		
 		s = np.r_[ x[window_len-1:0:-1], x, x[-1:-window_len:-1] ]
 		w = np.ones(window_len,'d')
 		c = np.convolve(w/w.sum(), s, mode='valid')
@@ -249,17 +252,37 @@ class SenkPolyTools(object):
 	
 		
 	
-	#def findMin(self, x):
-	#	"""
-	#		
-	#		@TODO: consider http://docs.scipy.org/doc/scipy/reference/signal.html
-	#	"""
-	#	arr_len = len(arr)
-	#	window = 50 # 
-	#	
-	#	for i in range(arr_len):
-	#		
+	def findExtrema(self, x, window_len = 50):
+		"""
+			
+			@TODO: consider http://docs.scipy.org/doc/scipy/reference/signal.html
+		"""
+		x_len = x.shape[0]
 		
+		if x_len < window_len:
+			raise Exception("SenkPolyTools.findExtrema: data length < window_len")
+		
+		minima = []
+		maxima = []
+		for i in range(x_len-1):
+			if x_len-i < window_len:
+				w = x[i:]
+			else:
+				w = x[i:i+window_len]
+			
+			# local minima
+			if x[i] <= x[i+1]:
+				lookahead_min = np.amin(w)
+				if lookahead_min >= x[i]:
+					minima.append( (i, x[i]) )
+			
+			# local maxima
+			if x[i] >= x[i+1]:
+				lookahead_max = np.amax(w)
+				if lookahead_max <= x[i]:
+					maxima.append( (i, x[i]) )
+		
+		return (minima, maxima)
 	
 
 
