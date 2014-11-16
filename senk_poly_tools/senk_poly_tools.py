@@ -179,6 +179,9 @@ class SenkPolyTools(object):
 					k = k+1
 		
 		e.data_labels = [l for l in e.labels if l != self.annot_label]
+		
+		for chn_idx, chn_data in enumerate(data):
+			data[chn_idx] = np.array(chn_data)
 		e.data = np.array(data) # e.data is a numpy 2D matrix
 		del data
 		
@@ -190,7 +193,7 @@ class SenkPolyTools(object):
 		pprint.pprint(edf_h)
 	
 
-	def visualizeEdf(self, edf, channels = [], fig_dpi = 200):
+	def visualizeEdf(self, edf, all_minima = {}, all_maxima = {}, channels = [], fig_dpi = 200):
 		""" Visualize the signals from an EDF file.
 		
 			The displayed channels are derived from the data automatically or can be determined explicitly with the 'channels' parameter..
@@ -204,7 +207,7 @@ class SenkPolyTools(object):
 		fig, axes = plt.subplots(
 			ax_num,
 			1,
-			figsize=(ax_num*4, 30),
+			figsize=(ax_num*5, 30),
 			dpi=fig_dpi
 		)
 		fig.tight_layout()
@@ -218,69 +221,110 @@ class SenkPolyTools(object):
 				axes[chn].plot(
 					x,
 					edf.data[chn],
-					color='#000000'
+					color='#000000',
+					alpha=0.5
 				)
 				
 				axes[chn].set_title(edf.data_labels[chn], loc='left')
+				
+				chn_minima = all_minima.get(chn)
+				if chn_minima:
+					axes[chn].vlines([idx for idx, _ in chn_minima], -150.0, 150.0, color='#3B209C', alpha=0.5)
+				
+				chn_maxima = all_maxima.get(chn)
+				if chn_maxima:
+					axes[chn].vlines([idx for idx, _ in chn_maxima], -150.0, 150.0, color='#ED9A00', alpha=0.5)
 		
 		plt.savefig(os.path.join('..', 'results', '{}.png'.format(edf.file_basename)))
 		plt.close()
 	
 	
-	def smoothByAvg(self, x, window_len = 3):
+	def smoothByAvg(self, x, wl = 3):
 		""" Smooth a curve with moving average.
 		
-			A series of overlapping, window_len length sections are created from the data (these are the moving windows), and they are convoluted against ones.
+			A series of overlapping, wl length sections are created from the data (these are the moving windows), and they are convoluted against ones.
 			
 			Smoothing by moving average is a basic smoothing function for non-periodic functions (as TCD data is typically not periodic, for example; see FFT for periodic data).
 			
 			param x numpy array containing the data (typically a channel)
-			param window_len int, the length of the moving window
+			param wl int, the length of the moving window
 			returns a numpy array of the smoothed data
 		"""
-		if len(x) < window_len:
-			raise Exception("SenkPolyTools.smoothByAvg: data length < window_len")
+		if len(x) < wl:
+			raise Exception("SenkPolyTools.smoothByAvg: data length < wl")
 		
-		s = np.r_[ x[window_len-1:0:-1], x, x[-1:-window_len:-1] ]
-		w = np.ones(window_len,'d')
+		s = np.r_[ x[wl-1:0:-1], x, x[-1:-wl:-1] ]
+		w = np.ones(wl,'d')
 		c = np.convolve(w/w.sum(), s, mode='valid')
 		
-		# the smoothed array will have the length of (the original array + window_len -1),
-		# but the first window_len-1 points are not averaged
-		# -> cut window_len/2 points at the start of the results
-		return c[floor(window_len/2):]
+		# the smoothed array will have the length of (the original array + wl -1),
+		# but the first wl-1 points are not averaged
+		# -> cut wl/2 points at the start of the results
+		return c[floor(wl/2):]
 	
 		
 	
-	def findExtrema(self, x, window_len = 50):
-		"""
+	def findExtrema(self, x, hwl = 50):
+		""" Find the local extrema (minima and maxima) in a vector within a running window.
+		
+			The method takes a running window and finds one local minimum and local maximum in it. The window serves as a combined lookback and lookahead frame, the currently examined value (x[i]) is always at the middle between the two frames. The window itself can be different length:
+			1. It starts at index 0, its length is hwl (==only the lookahead frame),
+				|[*---]-------|
+			2. as it moves, more and more values can be included in the lookback frame,
+				|[--*---]-----|	
+			3. when the current index is equal or greater than the half window length (i>=hwl), but there are more indices remaining than the lookahead frame (len(x)>i+hwl), it's a full window,
+				|-[---*---]---|
+			4. the lookahead frame starts to shrink as the end of the data is approached,
+				|------[---*-]|
+			5. and finally it stops when the last value is examined
+				|-------[---*]|
 			
-			@TODO: consider http://docs.scipy.org/doc/scipy/reference/signal.html
+			If the currently examined value is the smallest/largest in the window,
+			it is added to the output, if not, the window moves on.
+			
+			The result is a tuple of 2 lists, each list containing (index, value) tuples. Every time a local minimum or maximum was found, it is added to the respective list with its index.
+			
+			The first value is used from plateaus.
+			
+			Note that scipy.signal.argrelextrema() does *not* always find the smallest local minima, therefore a custom method was created.
+			
+			Parameters
+			----------
+			param x: 1D numpy array of data
+			param hwl: integer, the half length of the running window
+			returns: a (minima, maxima) tuple, both minima and maxima are lists of (index, value) tuples
+			
+			Example
+			-------
+			>>> x
+			... array([1.0, .6, .8, .5, .7, .8, 1.0, 1.0, 1.0, .8, .6, .2, .5, .3, .4, .5, .8, 1.0, .7])
+			>>> minima, maxima = findExtrema(x, 3)
+			>>> minima
+			... [(3, .5), (11, .2)]
+			>>> maxima
+			... [(0, 1.0), (6, 1.0), (17, 1.0)]
 		"""
 		x_len = x.shape[0]
-		
-		if x_len < window_len:
-			raise Exception("SenkPolyTools.findExtrema: data length < window_len")
+
+		if x_len < hwl:
+			raise Exception("SenkPolyTools.findExtrema: data length < hwl")
 		
 		minima = []
 		maxima = []
-		for i in range(x_len-1):
-			if x_len-i < window_len:
-				w = x[i:]
-			else:
-				w = x[i:i+window_len]
+		for i in range(x_len):
+			ws = i-hwl if i-hwl>=0 else 0 # running window start
+			we = i+hwl if i+hwl<=x_len else x_len # running window end
+
+			w = x[ws:we]
+			wi = i-ws
 			
-			# local minima
-			if x[i] <= x[i+1]:
-				lookahead_min = np.amin(w)
-				if lookahead_min >= x[i]:
-					minima.append( (i, x[i]) )
+			wmin_i = np.argmin(w)
+			if wi == wmin_i:
+				minima.append( (i, x[i]) )
 			
-			# local maxima
-			if x[i] >= x[i+1]:
-				lookahead_max = np.amax(w)
-				if lookahead_max <= x[i]:
-					maxima.append( (i, x[i]) )
+			wmax_i = np.argmax(w)
+			if wi == wmax_i:
+				maxima.append( (i, x[i]) )
 		
 		return (minima, maxima)
 	

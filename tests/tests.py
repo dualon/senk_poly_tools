@@ -71,26 +71,49 @@ class SenkPolyToolsTests(SenkPolyTools):
 		print("[ OK ]")
 		
 		print("\tAsserting minima...", end=" ")
-		#assert minima == [(3, .5), (9, .2)]
-		print(minima)
+		assert minima == [(3, .5), (11, .2)]
+		#print(minima)
 		print("[ OK ]")
 		
 		print("\tAsserting maxima...", end=" ")
-		#assert maxima == [(3, .5), (9, .2)]
-		print(maxima)
+		assert maxima == [(0, 1.0), (6, 1.0), (17, 1.0)]
+		#print(maxima)
 		print("[ OK ]")
 		
 		fig, ax = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
 		fig.tight_layout()
 			
-		ax.set_title('Find Minima (red) and Maxima (green)', loc='left')
+		ax.set_title('Find Minima (purple) and Maxima (yellow)', loc='left')
+		#ax.set_axis_bgcolor('#a0a0a0')
 		ax.plot(x1, color='#404040', alpha=0.5)
-		ax.vlines([idx for idx, _ in minima], 0.0, 1.0, color='#AA0000', alpha=0.5)
-		ax.vlines([idx for idx, _ in maxima], 0.0, 1.0, color='#00AA00', alpha=0.5)
+		ax.vlines([idx for idx, _ in minima], 0.0, 1.0, color='#3B209C', alpha=0.5)
+		ax.vlines([idx for idx, _ in maxima], 0.0, 1.0, color='#ED9A00', alpha=0.5)
 		#ax.plot(x2, y2, color='#AA0000', alpha=0.5)
 		
 		plt.savefig(os.path.join('..', 'results', 'find_extrema.png'))
 		plt.close()
+	
+	
+	def testSmoothedExtrema(self, e):
+		print("visualize smoothed first channel of real data (smoothing window: 3, findExtrema half-window 100)...", end=" ")
+		
+		chn_0_sm = spt.smoothByAvg(edf_container.data[0][:2000], 8)
+		chn_0_mins, chn_0_maxes = spt.findExtrema(chn_0_sm, 40)
+		
+		fig, ax = plt.subplots(1, 1, figsize=(100, 8), dpi=200)
+		fig.tight_layout()
+		
+		ax.set_title('Orig. (grey) and smoothed (green) data, find Minima (purple) and Maxima (yellow) on smoothed', loc='left')
+		#ax.set_axis_bgcolor('#a0a0a0')
+		ax.plot(edf_container.data[0][:2000], color='#000000', alpha=0.3)
+		ax.plot(chn_0_sm, color='#008000', alpha=0.5)
+		
+		ax.vlines([idx for idx, _ in chn_0_mins], -100.0, 150.0, color='#3B209C', alpha=0.5)
+		ax.vlines([idx for idx, _ in chn_0_maxes], -100.0, 150.0, color='#ED9A00', alpha=0.5)
+		
+		plt.savefig(os.path.join('..', 'results', 'osas2002_chn0_find_extrema.png'))
+		plt.close()
+		print("[ OK ]")
 	
 
 
@@ -105,10 +128,22 @@ if __name__ == "__main__":
 	edf_container = spt.testLoadEdfHeaders(edf_container)
 	
 	#spt.printEdfHeaders(edf_container)
-
+	
 	edf_container = spt.testLoadEdfData(edf_container)
+	#
+	#spt.testCurveSmoothing(edf_container)
 	
-	spt.testCurveSmoothing(edf_container)
+	#spt.testFindExtrema()
+	#
+	#print("\tfindExtrema() on each real data channel...", end=" ")
+	#all_minima = {}
+	#all_maxima = {}
+	#for chn_idx, chn_d in enumerate(edf_container.data):
+	#	all_minima[chn_idx], all_maxima[chn_idx] = spt.findExtrema(chn_d, 100)
+	#print("[ OK ]")
+	#
+	#print("visualizeEdf()...", end=" ")
+	#spt.visualizeEdf(edf_container, all_minima, all_maxima)
+	#print("[ OK ]")
 	
-	spt.testFindExtrema()
-	
+	spt.testSmoothedExtrema(edf_container)
