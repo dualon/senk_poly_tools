@@ -130,20 +130,20 @@ if __name__ == "__main__":
 	#spt.printEdfHeaders(edf_container)
 	
 	edf_container = spt.testLoadEdfData(edf_container)
-	#
-	#spt.testCurveSmoothing(edf_container)
 	
-	#spt.testFindExtrema()
-	#
-	#print("\tfindExtrema() on each real data channel...", end=" ")
-	#all_minima = {}
-	#all_maxima = {}
-	#for chn_idx, chn_d in enumerate(edf_container.data):
-	#	all_minima[chn_idx], all_maxima[chn_idx] = spt.findExtrema(chn_d, 100)
-	#print("[ OK ]")
-	#
-	#print("visualizeEdf()...", end=" ")
-	#spt.visualizeEdf(edf_container, all_minima, all_maxima)
-	#print("[ OK ]")
+	spt.testCurveSmoothing(edf_container)
+	
+	spt.testFindExtrema()
+	
+	print("\tfindExtrema() on each real data channel...", end=" ")
+	all_minima = {}
+	all_maxima = {}
+	for chn_idx, chn_d in enumerate(edf_container.data):
+		all_minima[chn_idx], all_maxima[chn_idx] = spt.findExtrema(chn_d, 100)
+	print("[ OK ]")
+	
+	print("visualizeEdf()...", end=" ")
+	spt.visualizeEdf(edf_container, all_minima, all_maxima)
+	print("[ OK ]")
 	
 	spt.testSmoothedExtrema(edf_container)

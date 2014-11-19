@@ -15,12 +15,14 @@ import os
 import argparse
 import pprint
 import datetime
+import re
 import numpy as np
 from math import floor
 import matplotlib.pyplot as plt
+import csv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from senk_poly_tools.edf_container import EdfContainer
+from edf_container import EdfContainer # senk_poly_tools.
 
 class SenkPolyTools(object):
 	
@@ -41,6 +43,14 @@ class SenkPolyTools(object):
 		
 		e = EdfContainer(abs_path)
 		e.file_obj = open(abs_path, 'rb')
+		
+		return e
+	
+
+	def loadEdf(self, file_name):
+		e = self.createEdfContainer(file_name)
+		e = self.loadEdfHeaders(e)
+		e = self.loadEdfData(e)
 		
 		return e
 	
@@ -160,7 +170,7 @@ class SenkPolyTools(object):
 					raise InputError("Unexpected end of EDF file!")
 				
 				if e.labels[j] == self.annot_label:
-					e.annotations.append(buff)
+					e.annotations.extend(self.parseEdfAnnotation(buff))
 				else:
 					# if there is no entry for the channel data, create one
 					if len(data) == j:
@@ -169,9 +179,7 @@ class SenkPolyTools(object):
 					# 2-byte little endian integer per channel
 					dig = np.fromstring(buff, '<i2').astype(np.float32)
 					phys = (dig - e.digital_min[j]) * e.gain[j] + e.physical_min[j]
-					
-					# list extension + numpy arrayconversion at the end
-					# is faster than converting each record to numpy array
+
 					# @TODO: consider numpy.r_
 					phys = phys.tolist()
 					data[k].extend(phys) # note the 'k' index
@@ -180,12 +188,40 @@ class SenkPolyTools(object):
 		
 		e.data_labels = [l for l in e.labels if l != self.annot_label]
 		
+		# @TODO: more elegant numpy conversion
 		for chn_idx, chn_data in enumerate(data):
 			data[chn_idx] = np.array(chn_data)
 		e.data = np.array(data) # e.data is a numpy 2D matrix
 		del data
 		
 		return e
+	
+
+	def parseEdfAnnotation(self, annot):
+		""" Parse annotations of an EDF+ file.
+		
+			The EDF+ annotations are unicode encoded bytes. The onset and duration are separated by \x14 (single byte with value 21), these are followed by one or more annotation strings, which are separated by \x15 (single byte with value 20).
+			See the EDF+ specification for details:
+				http://www.edfplus.info/specs/edfplus.html#edfplusannotations
+			See also SenkPolyTools.loadEdfData()
+		
+			param annot: bytes, the annotations in a record
+			returns: list of dicts, each dict is like {'onset': <float>, 'duration': <float>, 'annotation': <string>}
+			
+			Example
+			-------
+			>>> ann = SenkPolyTools.parseEdfAnnotation(bytes)
+			>>> ann
+			... [{'onset': '+0', 'duration': None, 'annotation': ''}, {'onset': '+94.8038', 'duration': '0.0000', 'annotation': '1'}]
+		"""
+		
+		exp = '(?P<onset>[+\-]\d+(?:\.\d*)?)' + \
+			'(?:\x15(?P<duration>\d+(?:\.\d*)?))?' + \
+			'(\x14(?P<annotation>[^\x00]*))?' + \
+			'(?:\x14\x00)'
+
+		return [m.groupdict() for m in re.finditer(exp, annot.decode('utf-8'))]
+		
 
 	
 	def printEdfHeaders(self, e):
@@ -328,6 +364,44 @@ class SenkPolyTools(object):
 		
 		return (minima, maxima)
 	
+	
+	def indexDists(self, ind):
+		""" Get the arithmetic distance among indices in a list.
+		
+			Example
+			-------
+			Find out the RR distances from an ECG channel (let's say that channel 0 is the ECG):
+			>>> minima, maxima = SenkPolyTools.findExtrema(EdfContainer.data[0])
+			>>> rr_indices, rr_amplitudes = zip(*maxima)
+			>>> dists = SenkPolyTools.indexDists(rr_indices)
+			>>> heart_rate = [60/(dist/EdfContainer.sample_freq[0]) for dist in dists]
+		"""
+		
+		prev_idx_val = 0
+		dist = []
+		for idx in ind:
+			dist.append(idx-prev_idx_val)
+			prev_idx_val = idx
+		
+		return dist
+
+
+	def downsample(self, x, orig_freq, freq):
+		""" Downsample signal data.
+		
+			The downsampling ratio is calculated as the floor(original frequency/new freqency), both frequency values should be in the same dimension (preferably Hertz).
+			Note that this is a simple downsampling, not decimation, therefore high frequency data may cause aliasing.
+			
+			param x: numpy array or list, the signal data
+			param orig_freq: float, the original frequency
+			param freq: float, the new frequency
+			returns: a numpy array of the downsampled data
+		"""
+		stepping = floor(orig_freq/freq)
+		
+		return np.array(x[:stepping:])
+	
+	
 
 
 
@@ -339,37 +413,135 @@ if __name__ == '__main__':
 	args = argp.parse_args()
 	
 	spt = SenkPolyTools()
+	edfc = spt.loadEdf(args.edf)
 	
-	edfc = spt.createEdfContainer(os.path.join('..', 'data', args.edf))
-	edfc = spt.loadEdfHeaders(edfc)
-	#spt.printEdfHeaders(edfc)
-	edfc = spt.loadEdfData(edfc)
-	
-	#sm_ch = spt.smooth(edfc.data[23])
-	print(edfc.data_labels)
-	fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(30, 8), dpi=300)
-	fig.tight_layout()
-	
-	y1 = edfc.data[19][0:1000]
-	x1 = np.arange(1000)
-	ax1.plot(x1, y1, color='#404040', alpha=0.5)
-	
-	y2 = spt.smoothByAvg(edfc.data[19][0:1000])
-	x2 = np.arange(y2.shape[0])
-	ax1.plot(x2, y2, color='#AA0000', alpha=0.5)
-	
-	ax1.set_title(edfc.data_labels[19] + ' Original (grey) vs Smooth (red)', loc='left')
-	
-	y3 = edfc.data[23][0:1000]
-	ax2.plot(x1, y3, color='#404040', alpha=0.5)
-	
-	y4 = spt.smoothByAvg(edfc.data[23][0:1000])
-	x4 = np.arange(y4.shape[0])
-	ax2.plot(x4, y4, color='#AA0000', alpha=0.5)
-	
-	ax2.set_title(edfc.data_labels[23] + ' Original (grey) vs Smooth (red)', loc='left')
-	
-	plt.savefig(os.path.join('..', 'results', '{}_orig_vs_smoothbyavg.png'.format(edfc.file_basename)))
-	plt.close()
+	channels = ['TCD  1', 'TCD 2', 'Tonometry', 'CO2', 'EKG1', 'EKG2']
+	results_base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'results'))
 	
 	#spt.visualizeEdf(edfc)
+	
+	print("Annotations... ", end='')
+	annot_fname = os.path.join(results_base_path, "{}_annotations.txt".format(edfc.file_basename))
+	with open(annot_fname, 'w', newline='') as annfp:
+		csvw = csv.writer(annfp)
+		
+		csvw.writerow(['Onset', 'Duration', 'Annotation(s)'])
+		for ann in edfc.annotations:
+			if ann['annotation']:
+				csvw.writerow([
+					ann['onset'],
+					ann['duration'],
+					ann['annotation']
+				])
+	print("OK")
+	
+	for chn_i, chn_data in enumerate(edfc.data):
+		chn_n = edfc.data_labels[chn_i]
+		chn_data = edfc.data[chn_i]
+		print("Channel '{}'... ".format(chn_n), end="")
+		
+		if 'EKG' in chn_n or 'ECG' in chn_n:
+			sm_data = spt.smoothByAvg(chn_data, 8)
+			minima, maxima = spt.findExtrema(sm_data, 150)
+			ecg_max_idx, __ = zip(*maxima)
+			ecg_dists = spt.indexDists(ecg_max_idx)
+			hr = [60/(dist/edfc.sample_freq[chn_i]) for dist in ecg_dists]
+			
+			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp)
+				
+				for d in hr:
+					csvw.writerow([d])
+			
+		
+			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
+			#fig.tight_layout()
+			#
+			##x = range(len(chn_data))
+			#ax.plot(chn_data[:10000], color='#000000', alpha=0.3 )
+			#ax.plot(sm_data[:10000], color='#990000', alpha=0.7 )
+			#ax.vlines([idx for idx, _ in minima[:25]], -150.0, 150.0, color='#3B209C', alpha=0.5)
+			#ax.vlines([idx for idx, _ in maxima[:25]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
+			#
+			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
+			#plt.close()
+			
+			
+			print("OK")
+		
+		elif 'TCD' in chn_n:
+			sm_data = spt.smoothByAvg(chn_data)
+			sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			
+			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp)
+	
+				for d in sm_data_ds:
+					csvw.writerow([d])
+			
+			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
+			#fig.tight_layout()
+			#
+			#ax.plot(chn_data[:10000], color='#000000', alpha=0.3 )
+			#ax.plot(sm_data[:10000], color='#990000', alpha=0.7 )
+			##ax.vlines([idx for idx, _ in minima[:25]], -150.0, 150.0, color='#3B209C', alpha=0.5)
+			##ax.vlines([idx for idx, _ in maxima[:25]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
+			#
+			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
+			#plt.close()
+			
+			print("OK")
+			
+		elif 'Tonometry' in chn_n: # ABP
+			sm_data = spt.smoothByAvg(chn_data)
+			sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			
+			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp)
+				
+				for d in sm_data_ds:
+					csvw.writerow([d])
+			
+			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
+			#fig.tight_layout()
+			#
+			#ax.plot(chn_data[:10000], color='#000000', alpha=0.3 )
+			#ax.plot(sm_data[:10000], color='#990000', alpha=0.7 )
+			##ax.vlines([idx for idx, _ in minima[:25]], -150.0, 150.0, color='#3B209C', alpha=0.5)
+			##ax.vlines([idx for idx, _ in maxima[:25]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
+			#
+			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
+			#plt.close()
+			
+			print("OK")
+		
+		elif 'CO2' in chn_n:
+			_, maxima = spt.findExtrema(chn_data)
+			__, co2_maxes = zip(*maxima)
+			sm_data = spt.smoothByAvg(co2_maxes)
+			sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			
+			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp)
+				
+				for d in sm_data_ds:
+					csvw.writerow([d])
+			
+			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
+			#fig.tight_layout()
+			#
+			#ax.plot(chn_data[:1000], color='#000000', alpha=0.3 )
+			#ax.plot(sm_data[:1000], color='#990000', alpha=0.7 )
+			##ax.plot(sm_data_ds[:5], color='#009900', alpha=0.7 )
+			#
+			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
+			#plt.close()
+			
+			print("OK")
+		
+		else:
+			print("skipped")
