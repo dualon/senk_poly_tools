@@ -10,10 +10,9 @@ Python 3.3+, Numpy 1.8+, MatPlotLib 1.4+
 
 1. Install Python 3.3+: The official [Python homepage](https://wiki.python.org/moin/BeginnersGuide/Download) has instructions on installing Python on Windows, linux or Mac boxes.
 
-2. Check from the command line if Python 3 has been installed
-Linux/Windows/Mac:
+2. Check from the command line if Python 3 has been installed. Linux/Windows/Mac:
 	
-	$ python3 --version
+		$ python3 --version
 	
 	See these pages on how to use the command line: [Linux](https://help.ubuntu.com/community/UsingTheTerminal), [Windows](http://windows.microsoft.com/en-us/windows-vista/open-a-command-prompt-window), [Mac](http://www.wikihow.com/Get-to-the-Command-Line-on-a-Mac)
 
@@ -21,7 +20,7 @@ Linux/Windows/Mac:
 
 	Linux:
 
-	$ sudo apt-get install python3-numpy python3-matplotlib
+		$ sudo apt-get install python3-numpy python3-matplotlib
 	
 	Windows:
 
@@ -42,7 +41,8 @@ Usage
 4. Run the tool as
 	
 	$ python3 senk_poly_tools.py -edf your_input_file.edf
-Where "your_input_file.edf" is the input file ("./data/your_input_file.edf")
+
+	Where "your_input_file.edf" is the input file ("./data/your_input_file.edf")
 
 5. Find the results in the ./results directory.
 
