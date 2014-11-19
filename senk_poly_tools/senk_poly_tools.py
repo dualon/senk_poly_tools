@@ -441,18 +441,23 @@ if __name__ == '__main__':
 		print("Channel '{}'... ".format(chn_n), end="")
 		
 		if 'EKG' in chn_n or 'ECG' in chn_n:
+			ecg_freq = edfc.sample_freq[chn_i]
+			
 			sm_data = spt.smoothByAvg(chn_data, 8)
 			minima, maxima = spt.findExtrema(sm_data, 150)
-			ecg_max_idx, __ = zip(*maxima)
-			ecg_dists = spt.indexDists(ecg_max_idx)
-			hr = [60/(dist/edfc.sample_freq[chn_i]) for dist in ecg_dists]
+			ecg_max_ind, __ = zip(*maxima)
+			ecg_dists = spt.indexDists(ecg_max_ind)
+			hr = [60/(dist/ecg_freq) for dist in ecg_dists]
+			times = [curr_ecg_idx/ecg_freq for curr_ecg_idx in ecg_max_ind]
+			times.insert(0, 0.0)
 			
 			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp)
 				
-				for d in hr:
-					csvw.writerow([d])
+				csvw.writerow(['Time', 'Heart Rate'])
+				for ecg_t, ecg_hr in zip(times, hr):
+					csvw.writerow([ecg_t, ecg_hr])
 			
 		
 			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
