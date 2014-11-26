@@ -18,7 +18,7 @@ import datetime
 import re
 import numpy as np
 from math import floor
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import csv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -229,50 +229,50 @@ class SenkPolyTools(object):
 		pprint.pprint(edf_h)
 	
 
-	def visualizeEdf(self, edf, all_minima = {}, all_maxima = {}, channels = [], fig_dpi = 200):
-		""" Visualize the signals from an EDF file.
-		
-			The displayed channels are derived from the data automatically or can be determined explicitly with the 'channels' parameter..
-		
-		"""
-		ax_num = (len(channels) if channels else len(edf.data))
-		# NOT safe to use explicit channel 0 - TODO: auto-detect data channels
-		data_len = len(edf.data[0])
-		x = range(data_len)
-		
-		fig, axes = plt.subplots(
-			ax_num,
-			1,
-			figsize=(ax_num*5, 30),
-			dpi=fig_dpi
-		)
-		fig.tight_layout()
-		
-		for chn in range(ax_num):
-			if (not channels or (channels and (chn in channels))):
-				# the recorded data length may vary per channel
-				x = range(len(edf.data[chn]))
-				#if edf.labels[chn] != self.annot_label:
-				#print("chn: {} = {}, x: {}, y: {}".format(edf.labels[chn], chn, len(x), ))
-				axes[chn].plot(
-					x,
-					edf.data[chn],
-					color='#000000',
-					alpha=0.5
-				)
-				
-				axes[chn].set_title(edf.data_labels[chn], loc='left')
-				
-				chn_minima = all_minima.get(chn)
-				if chn_minima:
-					axes[chn].vlines([idx for idx, _ in chn_minima], -150.0, 150.0, color='#3B209C', alpha=0.5)
-				
-				chn_maxima = all_maxima.get(chn)
-				if chn_maxima:
-					axes[chn].vlines([idx for idx, _ in chn_maxima], -150.0, 150.0, color='#ED9A00', alpha=0.5)
-		
-		plt.savefig(os.path.join('..', 'results', '{}.png'.format(edf.file_basename)))
-		plt.close()
+	#def visualizeEdf(self, edf, all_minima = {}, all_maxima = {}, channels = [], fig_dpi = 200):
+	#	""" Visualize the signals from an EDF file.
+	#	
+	#		The displayed channels are derived from the data automatically or can be determined explicitly with the 'channels' parameter..
+	#	
+	#	"""
+	#	ax_num = (len(channels) if channels else len(edf.data))
+	#	# NOT safe to use explicit channel 0 - TODO: auto-detect data channels
+	#	data_len = len(edf.data[0])
+	#	x = range(data_len)
+	#	
+	#	fig, axes = plt.subplots(
+	#		ax_num,
+	#		1,
+	#		figsize=(ax_num*5, 30),
+	#		dpi=fig_dpi
+	#	)
+	#	fig.tight_layout()
+	#	
+	#	for chn in range(ax_num):
+	#		if (not channels or (channels and (chn in channels))):
+	#			# the recorded data length may vary per channel
+	#			x = range(len(edf.data[chn]))
+	#			#if edf.labels[chn] != self.annot_label:
+	#			#print("chn: {} = {}, x: {}, y: {}".format(edf.labels[chn], chn, len(x), ))
+	#			axes[chn].plot(
+	#				x,
+	#				edf.data[chn],
+	#				color='#000000',
+	#				alpha=0.5
+	#			)
+	#			
+	#			axes[chn].set_title(edf.data_labels[chn], loc='left')
+	#			
+	#			chn_minima = all_minima.get(chn)
+	#			if chn_minima:
+	#				axes[chn].vlines([idx for idx, _ in chn_minima], -150.0, 150.0, color='#3B209C', alpha=0.5)
+	#			
+	#			chn_maxima = all_maxima.get(chn)
+	#			if chn_maxima:
+	#				axes[chn].vlines([idx for idx, _ in chn_maxima], -150.0, 150.0, color='#ED9A00', alpha=0.5)
+	#	
+	#	plt.savefig(os.path.join('..', 'results', '{}.png'.format(edf.file_basename)))
+	#	plt.close()
 	
 	
 	def smoothByAvg(self, x, wl = 3):
