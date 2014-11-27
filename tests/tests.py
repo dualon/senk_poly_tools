@@ -115,6 +115,22 @@ class SenkPolyToolsTests(SenkPolyTools):
 		plt.close()
 		print("[ OK ]")
 	
+	
+	def testInterpolate(self):
+		print("interpolate():")
+		timed_y = [(1,5), (4,8), (8,4)]
+		sample_x = [2,3,5,6,7,8]
+		
+		i_y = self.interpolate(timed_y, sample_x)
+		
+		print(i_y)
+		
+		assert i_y[0] == (2,6.0)
+		assert i_y[1] == (3,7.0)
+		assert i_y[3] == (6,6.0)
+		
+		print("[ OK ]")
+	
 
 
 if __name__ == "__main__":
@@ -122,28 +138,30 @@ if __name__ == "__main__":
 	spt = SenkPolyToolsTests()
 	print("\t[ OK ]")
 	
-	edf_container = spt.testCreateEdfContainer('osas2002plusqrs.edf')
-	spt.e = edf_container
+	#edf_container = spt.testCreateEdfContainer('osas2002plusqrs.edf')
+	#spt.e = edf_container
+	#
+	#edf_container = spt.testLoadEdfHeaders(edf_container)
+	#
+	##spt.printEdfHeaders(edf_container)
+	#
+	#edf_container = spt.testLoadEdfData(edf_container)
+	#
+	#spt.testCurveSmoothing(edf_container)
+	#
+	#spt.testFindExtrema()
+	#
+	#print("\tfindExtrema() on each real data channel...", end=" ")
+	#all_minima = {}
+	#all_maxima = {}
+	#for chn_idx, chn_d in enumerate(edf_container.data):
+	#	all_minima[chn_idx], all_maxima[chn_idx] = spt.findExtrema(chn_d, 100)
+	#print("[ OK ]")
+	#
+	#print("visualizeEdf()...", end=" ")
+	#spt.visualizeEdf(edf_container, all_minima, all_maxima)
+	#print("[ OK ]")
+	#
+	#spt.testSmoothedExtrema(edf_container)
 	
-	edf_container = spt.testLoadEdfHeaders(edf_container)
-	
-	#spt.printEdfHeaders(edf_container)
-	
-	edf_container = spt.testLoadEdfData(edf_container)
-	
-	spt.testCurveSmoothing(edf_container)
-	
-	spt.testFindExtrema()
-	
-	print("\tfindExtrema() on each real data channel...", end=" ")
-	all_minima = {}
-	all_maxima = {}
-	for chn_idx, chn_d in enumerate(edf_container.data):
-		all_minima[chn_idx], all_maxima[chn_idx] = spt.findExtrema(chn_d, 100)
-	print("[ OK ]")
-	
-	print("visualizeEdf()...", end=" ")
-	spt.visualizeEdf(edf_container, all_minima, all_maxima)
-	print("[ OK ]")
-	
-	spt.testSmoothedExtrema(edf_container)
+	spt.testInterpolate()

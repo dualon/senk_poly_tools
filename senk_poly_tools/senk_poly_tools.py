@@ -300,7 +300,7 @@ class SenkPolyTools(object):
 	
 		
 	
-	def findExtrema(self, x, hwl = 50):
+	def findExtrema(self, x, hwl = 150):
 		""" Find the local extrema (minima and maxima) in a vector within a running window.
 		
 			The method takes a running window and finds one local minimum and local maximum in it. The window serves as a combined lookback and lookahead frame, the currently examined value (x[i]) is always at the middle between the two frames. The window itself can be different length:
@@ -401,6 +401,30 @@ class SenkPolyTools(object):
 		
 		return np.array(x[:stepping:])
 	
+
+	def interpolate(self, timed_y, sample_x):
+		
+		interpolated_y = []
+		tyi = iter(timed_y)
+		prev_tx, prev_ty = (0, 0.0)
+		next_tx, next_ty = next(tyi)
+		
+		for sx in sample_x:
+			if sx >= next_tx:
+				try:
+					prev_tx = next_tx
+					prev_ty = next_ty
+					next_tx, next_ty = next(tyi)
+				except StopIteration:
+					break;
+			
+			iy = ((next_ty - prev_ty) * (sx - prev_tx)) / (next_tx - prev_tx) + prev_ty
+			
+			interpolated_y.append( (sx, iy) )
+		
+		return 	interpolated_y
+		
+	
 	
 
 
@@ -444,7 +468,7 @@ if __name__ == '__main__':
 			ecg_freq = edfc.sample_freq[chn_i]
 			
 			sm_data = spt.smoothByAvg(chn_data, 8)
-			minima, maxima = spt.findExtrema(sm_data, 150)
+			minima, maxima = spt.findExtrema(sm_data)
 			ecg_max_ind, __ = zip(*maxima)
 			ecg_dists = spt.indexDists(ecg_max_ind)
 			hr = [60/(dist/ecg_freq) for dist in ecg_dists]
@@ -500,15 +524,31 @@ if __name__ == '__main__':
 			print("OK")
 			
 		elif 'Tonometry' in chn_n: # ABP
-			sm_data = spt.smoothByAvg(chn_data)
-			sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			sm_data = spt.smoothByAvg(chn_data, 8)
+			abp_mins, abp_maxes = spt.findExtrema(sm_data)
 			
-			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			sm_data_len = len(sm_data)
+			abp_sampling = int(edfc.sample_freq[chn_i]*0.5) # 500 Hz * 0.5
+			interp_x = [ix for ix in range(0, sm_data_len, abp_sampling)]
+			
+			abp_interp_mins = spt.interpolate(abp_mins, interp_x)
+			abp_interp_maxes = spt.interpolate(abp_maxes, interp_x)
+			
+			#sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			
+			fname = os.path.join(results_base_path, "{}_{}_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			
 			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp)
+				csvw = csv.writer(fp, dialect='excel')
+				csvw.writerow(["Time (sec)", "ABP Systole", "ABP Diastole", "(Syst + 2*Diast)/3"])
 				
-				for d in sm_data_ds:
-					csvw.writerow([d])
+				for abp_mn, abp_mx in zip(abp_interp_mins, abp_interp_maxes):
+					csvw.writerow([
+						abp_mn[0]/edfc.sample_freq[chn_i],
+						abp_mx[1],
+						abp_mn[1],
+						(abp_mx[1] + 2*abp_mn[1])/3
+					])
 			
 			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
 			#fig.tight_layout()
