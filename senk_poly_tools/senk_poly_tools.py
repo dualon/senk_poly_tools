@@ -443,7 +443,7 @@ if __name__ == '__main__':
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				
-				csvw.writerow(['Time', 'Heart Rate'])
+				csvw.writerow(['Time (sec)', 'Heart Rate'])
 				for ecg_t, ecg_hr in zip(times, hr):
 					csvw.writerow([ecg_t, ecg_hr])
 			
@@ -511,9 +511,12 @@ if __name__ == '__main__':
 			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				csvw.writerow(["Time (sec)", "CO2"])
 				
+				time = 0.0
 				for d in sm_data_ds:
-					csvw.writerow([d])
+					csvw.writerow([time, d])
+					time += .5
 			
 			print("OK")
 		
