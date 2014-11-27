@@ -501,7 +501,31 @@ if __name__ == '__main__':
 		
 		elif 'TCD' in chn_n:
 			sm_data = spt.smoothByAvg(chn_data)
-			sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			tcd_mins, tcd_maxes = spt.findExtrema(sm_data)
+			
+			sm_data_len = len(sm_data)
+			tcd_sampling = int(edfc.sample_freq[chn_i]*0.5) # 500 Hz * 0.5
+			interp_x = [ix for ix in range(0, sm_data_len, tcd_sampling)]
+			
+			tcd_interp_mins = spt.interpolate(tcd_mins, interp_x)
+			tcd_interp_maxes = spt.interpolate(tcd_maxes, interp_x)
+			
+			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp)
+				csvw.writerow(["Time (sec)", "TCD Maxima", "TCD Minima", "(Max + 2*Min)/3"])
+				
+				for tcd_mn, tcd_mx in zip(tcd_interp_mins, tcd_interp_maxes):
+					csvw.writerow([
+						tcd_mn[0]/edfc.sample_freq[chn_i],
+						tcd_mx[1],
+						tcd_mn[1],
+						(tcd_mx[1] + 2*tcd_mn[1])/3
+					])
+			
+			
+			
+			
 			
 			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
@@ -536,7 +560,7 @@ if __name__ == '__main__':
 			
 			#sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
 			
-			fname = os.path.join(results_base_path, "{}_{}_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel')
