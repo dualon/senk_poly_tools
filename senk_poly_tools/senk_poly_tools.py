@@ -18,7 +18,6 @@ import datetime
 import re
 import numpy as np
 from math import floor
-#import matplotlib.pyplot as plt
 import csv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -221,60 +220,8 @@ class SenkPolyTools(object):
 			'(?:\x14\x00)'
 
 		return [m.groupdict() for m in re.finditer(exp, annot.decode('utf-8'))]
-		
 
-	
-	def printEdfHeaders(self, e):
-		edf_h = vars(e)
-		pprint.pprint(edf_h)
-	
 
-	#def visualizeEdf(self, edf, all_minima = {}, all_maxima = {}, channels = [], fig_dpi = 200):
-	#	""" Visualize the signals from an EDF file.
-	#	
-	#		The displayed channels are derived from the data automatically or can be determined explicitly with the 'channels' parameter..
-	#	
-	#	"""
-	#	ax_num = (len(channels) if channels else len(edf.data))
-	#	# NOT safe to use explicit channel 0 - TODO: auto-detect data channels
-	#	data_len = len(edf.data[0])
-	#	x = range(data_len)
-	#	
-	#	fig, axes = plt.subplots(
-	#		ax_num,
-	#		1,
-	#		figsize=(ax_num*5, 30),
-	#		dpi=fig_dpi
-	#	)
-	#	fig.tight_layout()
-	#	
-	#	for chn in range(ax_num):
-	#		if (not channels or (channels and (chn in channels))):
-	#			# the recorded data length may vary per channel
-	#			x = range(len(edf.data[chn]))
-	#			#if edf.labels[chn] != self.annot_label:
-	#			#print("chn: {} = {}, x: {}, y: {}".format(edf.labels[chn], chn, len(x), ))
-	#			axes[chn].plot(
-	#				x,
-	#				edf.data[chn],
-	#				color='#000000',
-	#				alpha=0.5
-	#			)
-	#			
-	#			axes[chn].set_title(edf.data_labels[chn], loc='left')
-	#			
-	#			chn_minima = all_minima.get(chn)
-	#			if chn_minima:
-	#				axes[chn].vlines([idx for idx, _ in chn_minima], -150.0, 150.0, color='#3B209C', alpha=0.5)
-	#			
-	#			chn_maxima = all_maxima.get(chn)
-	#			if chn_maxima:
-	#				axes[chn].vlines([idx for idx, _ in chn_maxima], -150.0, 150.0, color='#ED9A00', alpha=0.5)
-	#	
-	#	plt.savefig(os.path.join('..', 'results', '{}.png'.format(edf.file_basename)))
-	#	plt.close()
-	
-	
 	def smoothByAvg(self, x, wl = 3):
 		""" Smooth a curve with moving average.
 		
@@ -403,7 +350,24 @@ class SenkPolyTools(object):
 	
 
 	def interpolate(self, timed_y, sample_x):
+		""" Interpolate linearly sparsely sampled data to get more frequently sampled output.
 		
+			The method takes a list of values (channel data) that are sparser than the resampling frequency, and calculates the intermediate y values at each 'sample_x' coordinate. The calculation is a linear interpolation (weighted average).
+		
+			param timed_y: list of tuples, each tuple is (x_coordinate, y_value)
+			param sample_x: list of integers, each integer is an x_coordinate
+			returns: list of tuples, (sample_x_i, interpolated_y)
+			
+			Example
+			-------
+			Find the systolic blood pressure values (the maxima of the arterial blood pressure) in data sampled at 500 Hz. The time positions of the maxima will be less frequent and irregular, therefore interpolate them to constant 0.5 Hz.
+			>>> _, abp_maxes = spt.findExtrema(channel_data)
+			>>> # 500 Hz * 0.5 = 250
+			>>> resampling_x = [ix for ix in range(0, len(channel_data), 250)]
+			>>> abp_interp_maxes = spt.interpolate(abp_maxes, interp_x)
+			>>> abp_interp_maxes
+			... [(0, 0.0), (250, 121.0), (500, 125.0), (750, 117.0)]
+		"""
 		interpolated_y = []
 		tyi = iter(timed_y)
 		prev_tx, prev_ty = (0, 0.0)
@@ -447,7 +411,7 @@ if __name__ == '__main__':
 	print("Annotations... ", end='')
 	annot_fname = os.path.join(results_base_path, "{}_annotations.txt".format(edfc.file_basename))
 	with open(annot_fname, 'w', newline='') as annfp:
-		csvw = csv.writer(annfp)
+		csvw = csv.writer(annfp, dialect='excel', delimiter=';')
 		
 		csvw.writerow(['Onset', 'Duration', 'Annotation(s)'])
 		for ann in edfc.annotations:
@@ -477,25 +441,11 @@ if __name__ == '__main__':
 			
 			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp)
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				
 				csvw.writerow(['Time', 'Heart Rate'])
 				for ecg_t, ecg_hr in zip(times, hr):
 					csvw.writerow([ecg_t, ecg_hr])
-			
-		
-			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
-			#fig.tight_layout()
-			#
-			##x = range(len(chn_data))
-			#ax.plot(chn_data[:10000], color='#000000', alpha=0.3 )
-			#ax.plot(sm_data[:10000], color='#990000', alpha=0.7 )
-			#ax.vlines([idx for idx, _ in minima[:25]], -150.0, 150.0, color='#3B209C', alpha=0.5)
-			#ax.vlines([idx for idx, _ in maxima[:25]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
-			#
-			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
-			#plt.close()
-			
 			
 			print("OK")
 		
@@ -512,7 +462,7 @@ if __name__ == '__main__':
 			
 			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp)
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				csvw.writerow(["Time (sec)", "TCD Maxima", "TCD Minima", "(Max + 2*Min)/3"])
 				
 				for tcd_mn, tcd_mx in zip(tcd_interp_mins, tcd_interp_maxes):
@@ -522,28 +472,6 @@ if __name__ == '__main__':
 						tcd_mn[1],
 						(tcd_mx[1] + 2*tcd_mn[1])/3
 					])
-			
-			
-			
-			
-			
-			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
-			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp)
-	
-				for d in sm_data_ds:
-					csvw.writerow([d])
-			
-			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
-			#fig.tight_layout()
-			#
-			#ax.plot(chn_data[:10000], color='#000000', alpha=0.3 )
-			#ax.plot(sm_data[:10000], color='#990000', alpha=0.7 )
-			##ax.vlines([idx for idx, _ in minima[:25]], -150.0, 150.0, color='#3B209C', alpha=0.5)
-			##ax.vlines([idx for idx, _ in maxima[:25]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
-			#
-			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
-			#plt.close()
 			
 			print("OK")
 			
@@ -558,12 +486,10 @@ if __name__ == '__main__':
 			abp_interp_mins = spt.interpolate(abp_mins, interp_x)
 			abp_interp_maxes = spt.interpolate(abp_maxes, interp_x)
 			
-			#sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
-			
 			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			
 			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp, dialect='excel')
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				csvw.writerow(["Time (sec)", "ABP Systole", "ABP Diastole", "(Syst + 2*Diast)/3"])
 				
 				for abp_mn, abp_mx in zip(abp_interp_mins, abp_interp_maxes):
@@ -573,17 +499,6 @@ if __name__ == '__main__':
 						abp_mn[1],
 						(abp_mx[1] + 2*abp_mn[1])/3
 					])
-			
-			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
-			#fig.tight_layout()
-			#
-			#ax.plot(chn_data[:10000], color='#000000', alpha=0.3 )
-			#ax.plot(sm_data[:10000], color='#990000', alpha=0.7 )
-			##ax.vlines([idx for idx, _ in minima[:25]], -150.0, 150.0, color='#3B209C', alpha=0.5)
-			##ax.vlines([idx for idx, _ in maxima[:25]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
-			#
-			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
-			#plt.close()
 			
 			print("OK")
 		
@@ -595,20 +510,10 @@ if __name__ == '__main__':
 			
 			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp)
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				
 				for d in sm_data_ds:
 					csvw.writerow([d])
-			
-			#fig, ax = plt.subplots(1, 1, figsize=(80, 8), dpi=200)
-			#fig.tight_layout()
-			#
-			#ax.plot(chn_data[:1000], color='#000000', alpha=0.3 )
-			#ax.plot(sm_data[:1000], color='#990000', alpha=0.7 )
-			##ax.plot(sm_data_ds[:5], color='#009900', alpha=0.7 )
-			#
-			#plt.savefig(os.path.join('..', 'results', '{}--{}.png'.format(edfc.file_basename, chn_n)))
-			#plt.close()
 			
 			print("OK")
 		
