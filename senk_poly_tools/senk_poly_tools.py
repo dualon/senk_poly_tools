@@ -243,7 +243,8 @@ class SenkPolyTools(object):
 		# the smoothed array will have the length of (the original array + wl -1),
 		# but the first wl-1 points are not averaged
 		# -> cut wl/2 points at the start of the results
-		return c[floor(wl/2):]
+		#return c[floor(wl/2):]
+		return c
 	
 		
 	
@@ -432,8 +433,8 @@ if __name__ == '__main__':
 			ecg_freq = edfc.sample_freq[chn_i]
 			
 			sm_data = spt.smoothByAvg(chn_data, 8)
-			minima, maxima = spt.findExtrema(sm_data)
-			ecg_max_ind, __ = zip(*maxima)
+			_, ecg_maxima = spt.findExtrema(sm_data)
+			ecg_max_ind, __ = zip(*ecg_maxima)
 			ecg_dists = spt.indexDists(ecg_max_ind)
 			hr = [60/(dist/ecg_freq) for dist in ecg_dists]
 			times = [curr_ecg_idx/ecg_freq for curr_ecg_idx in ecg_max_ind]
@@ -460,17 +461,31 @@ if __name__ == '__main__':
 			tcd_interp_mins = spt.interpolate(tcd_mins, interp_x)
 			tcd_interp_maxes = spt.interpolate(tcd_maxes, interp_x)
 			
+			# 5 seconds moving average on interpolated minima
+			_, tcd_imins_vals = zip(*tcd_interp_mins)
+			tcd_imins_vals = np.array(tcd_imins_vals)
+			tcd_imins_avg = spt.smoothByAvg(tcd_imins_vals, 10)
+			
+			# 5 seconds moving average on interpolated maxima
+			_, tcd_imaxes_vals = zip(*tcd_interp_maxes)
+			tcd_imaxes_vals = np.array(tcd_imaxes_vals)
+			tcd_immaxes_avg = spt.smoothByAvg(tcd_imaxes_vals, 10)
+			
 			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
-				csvw.writerow(["Time (sec)", "TCD Maxima", "TCD Minima", "(Max + 2*Min)/3"])
+				csvw.writerow(["Time (sec)", "TCD Maxima", "TCD Minima", "(Max + 2*Min)/3", "TCD Maxima 5sec Moving Avg", "TCD Minima 5sec Moving Avg", "Moving Avg (Max + 2*Min)/3", "Resistance Index of Moving Avg"])
 				
-				for tcd_mn, tcd_mx in zip(tcd_interp_mins, tcd_interp_maxes):
+				for tcd_mn, tcd_mx, tcd_imn_a, tcd_imx_a in zip(tcd_interp_mins, tcd_interp_maxes, tcd_imins_avg, tcd_immaxes_avg):
 					csvw.writerow([
 						tcd_mn[0]/edfc.sample_freq[chn_i],
 						tcd_mx[1],
 						tcd_mn[1],
-						(tcd_mx[1] + 2*tcd_mn[1])/3
+						(tcd_mx[1] + 2*tcd_mn[1])/3,
+						tcd_imx_a,
+						tcd_imn_a,
+						(tcd_imx_a + 2*tcd_imn_a)/3,
+						(tcd_imx_a - tcd_imn_a)/tcd_imx_a
 					])
 			
 			print("OK")
@@ -486,18 +501,31 @@ if __name__ == '__main__':
 			abp_interp_mins = spt.interpolate(abp_mins, interp_x)
 			abp_interp_maxes = spt.interpolate(abp_maxes, interp_x)
 			
+			# 5 seconds moving average on interpolated minima
+			_, abp_imins_vals = zip(*abp_interp_mins)
+			abp_imins_vals = np.array(abp_imins_vals)
+			abp_imins_avg = spt.smoothByAvg(abp_imins_vals, 10)
+			
+			# 5 seconds moving average on interpolated maxima
+			_, abp_imaxes_vals = zip(*abp_interp_maxes)
+			abp_imaxes_vals = np.array(abp_imaxes_vals)
+			abp_imaxes_avg = spt.smoothByAvg(abp_imaxes_vals, 10)
+			
 			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
-				csvw.writerow(["Time (sec)", "ABP Systole", "ABP Diastole", "(Syst + 2*Diast)/3"])
+				csvw.writerow(["Time (sec)", "ABP Systole", "ABP Diastole", "(Syst + 2*Diast)/3", "ABP Systole 5sec Moving Avg", "ABP Diastole 5sec Moving Avg", "Moving Avg (Syst + 2*Diast)/3"])
 				
-				for abp_mn, abp_mx in zip(abp_interp_mins, abp_interp_maxes):
+				for abp_mn, abp_mx, abp_imn_a, abp_imx_a in zip(abp_interp_mins, abp_interp_maxes, abp_imins_avg, abp_imaxes_avg):
 					csvw.writerow([
 						abp_mn[0]/edfc.sample_freq[chn_i],
 						abp_mx[1],
 						abp_mn[1],
-						(abp_mx[1] + 2*abp_mn[1])/3
+						(abp_mx[1] + 2*abp_mn[1])/3,
+						abp_imx_a,
+						abp_imn_a,
+						(abp_imx_a + 2*abp_imn_a)/3
 					])
 			
 			print("OK")
