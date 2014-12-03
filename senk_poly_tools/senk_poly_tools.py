@@ -531,20 +531,32 @@ if __name__ == '__main__':
 			print("OK")
 		
 		elif 'CO2' in chn_n:
-			_, maxima = spt.findExtrema(chn_data)
-			__, co2_maxes = zip(*maxima)
-			sm_data = spt.smoothByAvg(co2_maxes)
-			sm_data_ds = spt.downsample(sm_data, edfc.sample_freq[chn_i], 0.5)
+			co2_freq = edfc.sample_freq[chn_i]
+			sm_data = spt.smoothByAvg(chn_data, 8)
+			_, co2_maxima = spt.findExtrema(sm_data)
+			
+			sm_data_len = len(sm_data)
+			co2_sampling = int(co2_freq*0.5) # 500 Hz * 0.5
+			interp_x = [ix for ix in range(0, sm_data_len, co2_sampling)]
+			
+			co2_interp_maxes = spt.interpolate(co2_maxima, interp_x)
+			
+			# 5 seconds moving average on interpolated maxima
+			_, co2_imaxes_vals = zip(*co2_interp_maxes)
+			co2_imaxes_vals = np.array(co2_imaxes_vals)
+			co2_immaxes_avg = spt.smoothByAvg(co2_imaxes_vals, 10)
 			
 			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
-				csvw.writerow(["Time (sec)", "CO2"])
+				csvw.writerow(["Time (sec)", "CO2 Maxima", "CO2 Maxima 5sec Moving Avg"])
 				
-				time = 0.0
-				for d in sm_data_ds:
-					csvw.writerow([time, d])
-					time += .5
+				for co2_mx, co2_imx_a in zip(co2_interp_maxes, co2_immaxes_avg):
+					csvw.writerow([
+						(co2_mx[0]/co2_freq) - 7, # respiratory channel delays 7 seconds
+						co2_mx[1],
+						co2_imx_a
+					])
 			
 			print("OK")
 		
