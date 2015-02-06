@@ -404,7 +404,7 @@ if __name__ == '__main__':
 	spt = SenkPolyTools()
 	edfc = spt.loadEdf(args.edf)
 	
-	channels = ['TCD  1', 'TCD 2', 'Tonometry', 'CO2', 'EKG1', 'EKG2']
+	#channels = ['TCD  1', 'TCD 2', 'Tonometry', 'CO2', 'EKG1', 'EKG2']
 	results_base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'results'))
 	
 	#spt.visualizeEdf(edfc)
@@ -532,9 +532,33 @@ if __name__ == '__main__':
 		
 		elif 'CO2' in chn_n:
 			co2_freq = edfc.sample_freq[chn_i]
-			sm_data = spt.smoothByAvg(chn_data, 8)
+			sm_data = spt.smoothByAvg(chn_data, 500)
 			_, co2_maxima = spt.findExtrema(sm_data)
 			
+			# respiratory rate
+			co2_max_ind, __ = zip(*co2_maxima)
+			co2_dists = spt.indexDists(co2_max_ind)
+			rr = [60/(dist/co2_freq) for dist in co2_dists]
+			times = [curr_co2_idx/co2_freq for curr_co2_idx in co2_max_ind]
+			times.insert(0, 0.0)
+			
+			fname = os.path.join(results_base_path, "{}_{}_resp_rate.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				
+				csvw.writerow(['Time (sec)', 'Respiratory Rate'])
+				for co2_t, co2_rr in zip(times, rr):
+					csvw.writerow([co2_t, co2_rr])
+			
+			#import matplotlib.pyplot as plt
+			#
+			#f,ax = plt.subplots(1,1,figsize=(80,8))
+			#ax.plot(sm_data[0:50000])
+			#ax.vlines([idx for idx, _ in co2_maxima[0:21]], -150.0, 150.0, color='#ED9A00', alpha=0.5)
+			#plt.savefig(os.path.join('..', 'results', '{}.png'.format(edfc.file_basename)))
+			#plt.close()
+			
+			# .5 Hz sampling of respiratory peaks
 			sm_data_len = len(sm_data)
 			co2_sampling = int(co2_freq*0.5) # 500 Hz * 0.5
 			interp_x = [ix for ix in range(0, sm_data_len, co2_sampling)]
