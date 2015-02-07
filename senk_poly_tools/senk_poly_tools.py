@@ -494,6 +494,24 @@ if __name__ == '__main__':
 			sm_data = spt.smoothByAvg(chn_data, 8)
 			abp_mins, abp_maxes = spt.findExtrema(sm_data)
 			
+			# heart rate from ABP, because ECG is missing many times...
+			abp_freq = edfc.sample_freq[chn_i]
+			
+			abp_max_ind, __ = zip(*abp_maxes)
+			abp_max_dists = spt.indexDists(abp_max_ind)
+			hr = [60/(dist/abp_freq) for dist in abp_max_dists]
+			times = [curr_abp_idx/abp_freq for curr_abp_idx in abp_max_ind]
+			times.insert(0, 0.0)
+			
+			fname = os.path.join(results_base_path, "{}_{}_heart_rate.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				
+				csvw.writerow(['Time (sec)', 'Heart Rate'])
+				for abp_t, abp_hr in zip(times, hr):
+					csvw.writerow([abp_t, abp_hr])
+			
+			# Half Hertz sampling of interpolated minima and maxima
 			sm_data_len = len(sm_data)
 			abp_sampling = int(edfc.sample_freq[chn_i]*0.5) # 500 Hz * 0.5
 			interp_x = [ix for ix in range(0, sm_data_len, abp_sampling)]
