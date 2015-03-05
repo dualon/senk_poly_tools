@@ -440,7 +440,7 @@ if __name__ == '__main__':
 			times = [curr_ecg_idx/ecg_freq for curr_ecg_idx in ecg_max_ind]
 			times.insert(0, 0.0)
 			
-			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			fname = os.path.join(results_base_path, "{}_{}_heart_rate.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				
