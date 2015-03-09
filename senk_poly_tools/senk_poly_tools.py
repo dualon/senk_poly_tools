@@ -468,7 +468,7 @@ if __name__ == '__main__':
 			tcd_imaxes_vals = np.array(tcd_imaxes_vals)
 			tcd_immaxes_avg = spt.smoothByAvg(tcd_imaxes_vals, 10)
 			
-			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
 				csvw.writerow(["Time (sec)", "TCD Maxima", "TCD Minima", "(Max + 2*Min)/3", "TCD Maxima 5sec Moving Avg", "TCD Minima 5sec Moving Avg", "Moving Avg (Max + 2*Min)/3", "Resistance Index of Moving Avg"])
@@ -518,7 +518,7 @@ if __name__ == '__main__':
 			abp_imaxes_vals = np.array(abp_imaxes_vals)
 			abp_imaxes_avg = spt.smoothByAvg(abp_imaxes_vals, 10)
 			
-			fname = os.path.join(results_base_path, "{}_{}_0.5Hz_derived.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			fname = os.path.join(results_base_path, "{}_{}_0.5hz.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 			
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
