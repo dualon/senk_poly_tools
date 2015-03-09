@@ -387,7 +387,7 @@ class SenkPolyTools(object):
 			
 			interpolated_y.append( (sx, iy) )
 		
-		return 	interpolated_y
+		return interpolated_y
 		
 	
 	
@@ -404,10 +404,7 @@ if __name__ == '__main__':
 	spt = SenkPolyTools()
 	edfc = spt.loadEdf(args.edf)
 	
-	#channels = ['TCD  1', 'TCD 2', 'Tonometry', 'CO2', 'EKG1', 'EKG2']
 	results_base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'results'))
-	
-	#spt.visualizeEdf(edfc)
 	
 	print("Annotations... ", end='')
 	annot_fname = os.path.join(results_base_path, "{}_annotations.txt".format(edfc.file_basename))
@@ -494,28 +491,20 @@ if __name__ == '__main__':
 			sm_data = spt.smoothByAvg(chn_data, 8)
 			abp_mins, abp_maxes = spt.findExtrema(sm_data)
 			
-			# heart rate from ABP, because ECG is missing many times...
+			# sampling settings
 			abp_freq = edfc.sample_freq[chn_i]
+			sm_data_len = len(sm_data)
+			abp_sampling = int(abp_freq*0.5) # 500 Hz * 0.5
+			interp_x = [ix for ix in range(0, sm_data_len, abp_sampling)]
 			
+			# heart rate from ABP for every half second, because ECG channel is often missing...
 			abp_max_ind, __ = zip(*abp_maxes)
 			abp_max_dists = spt.indexDists(abp_max_ind)
 			hr = [60/(dist/abp_freq) for dist in abp_max_dists]
-			times = [curr_abp_idx/abp_freq for curr_abp_idx in abp_max_ind]
-			times.insert(0, 0.0)
 			
-			fname = os.path.join(results_base_path, "{}_{}_heart_rate.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
-			with open(fname, "w", newline='') as fp:
-				csvw = csv.writer(fp, dialect='excel', delimiter=';')
-				
-				csvw.writerow(['Time (sec)', 'Heart Rate'])
-				for abp_t, abp_hr in zip(times, hr):
-					csvw.writerow([abp_t, abp_hr])
+			abp_hr_interp = spt.interpolate(zip(abp_max_ind, hr), interp_x)
 			
 			# Half Hertz sampling of interpolated minima and maxima
-			sm_data_len = len(sm_data)
-			abp_sampling = int(edfc.sample_freq[chn_i]*0.5) # 500 Hz * 0.5
-			interp_x = [ix for ix in range(0, sm_data_len, abp_sampling)]
-			
 			abp_interp_mins = spt.interpolate(abp_mins, interp_x)
 			abp_interp_maxes = spt.interpolate(abp_maxes, interp_x)
 			
@@ -533,17 +522,18 @@ if __name__ == '__main__':
 			
 			with open(fname, "w", newline='') as fp:
 				csvw = csv.writer(fp, dialect='excel', delimiter=';')
-				csvw.writerow(["Time (sec)", "ABP Systole", "ABP Diastole", "(Syst + 2*Diast)/3", "ABP Systole 5sec Moving Avg", "ABP Diastole 5sec Moving Avg", "Moving Avg (Syst + 2*Diast)/3"])
+				csvw.writerow(["Time (sec)", "ABP Systole", "ABP Diastole", "(Syst + 2*Diast)/3", "ABP Systole 5sec Moving Avg", "ABP Diastole 5sec Moving Avg", "Moving Avg (Syst + 2*Diast)/3", "Heart Rate (Derived)"])
 				
-				for abp_mn, abp_mx, abp_imn_a, abp_imx_a in zip(abp_interp_mins, abp_interp_maxes, abp_imins_avg, abp_imaxes_avg):
+				for abp_mn, abp_mx, abp_imn_a, abp_imx_a, abp_hr in zip(abp_interp_mins, abp_interp_maxes, abp_imins_avg, abp_imaxes_avg, abp_hr_interp):
 					csvw.writerow([
-						abp_mn[0]/edfc.sample_freq[chn_i],
+						abp_mn[0]/abp_freq,
 						abp_mx[1],
 						abp_mn[1],
 						(abp_mx[1] + 2*abp_mn[1])/3,
 						abp_imx_a,
 						abp_imn_a,
-						(abp_imx_a + 2*abp_imn_a)/3
+						(abp_imx_a + 2*abp_imn_a)/3,
+						abp_hr[1]
 					])
 			
 			print("OK")
