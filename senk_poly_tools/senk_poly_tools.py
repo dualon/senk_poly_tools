@@ -480,7 +480,7 @@ class SenkPolyTools(object):
 		
 		hr = [60/(dist/ecg_freq) for dist in ecg_dists]
 		times = [curr_ecg_idx/ecg_freq for curr_ecg_idx in ecg_max_ind]
-		times.insert(0, 0.0)
+		#times.insert(0, 0.0)
 		
 		fname = os.path.join(self.results_base_path, "{}_{}_heart_rate.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
 		with open(fname, "w", newline='') as fp:
