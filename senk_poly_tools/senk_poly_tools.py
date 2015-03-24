@@ -31,6 +31,7 @@ class SenkPolyTools(object):
 							'..',
 							'results')
 							)
+	export_nr_raw		= False
 	
 	def createEdfContainer(self, file_name):
 		""" Open an EDF(+) file and return an empty EdfContainer object. """
@@ -456,15 +457,27 @@ class SenkPolyTools(object):
 	def exportSenkEcg(self, edfc, chn_num):
 		chn_n = edfc.data_labels[chn_num]
 		data = edfc.data[chn_num]
+		ecg_freq = edfc.sample_freq[chn_num]
 		
 		print("Channel '{}'... ".format(chn_n), end="")
 			
 		sm_data = spt.smoothByAvg(data, 8)
+		
+		# export data after minimal noise reduction
+		if self.export_nr_raw:
+			fname = os.path.join(self.results_base_path, "{}_{}_nr_raw.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				
+				csvw.writerow(['Time (sec)', 'Data Value'])
+				for sm_d_i, dv in enumerate(sm_data):
+					csvw.writerow([sm_d_i/ecg_freq, dv])
+		
+		# find minima, maxima
 		_, ecg_maxima = spt.findExtrema(sm_data)
 		ecg_max_ind, __ = zip(*ecg_maxima)
 		ecg_dists = spt.indexDists(ecg_max_ind)
 		
-		ecg_freq = edfc.sample_freq[chn_num]
 		hr = [60/(dist/ecg_freq) for dist in ecg_dists]
 		times = [curr_ecg_idx/ecg_freq for curr_ecg_idx in ecg_max_ind]
 		times.insert(0, 0.0)
@@ -473,9 +486,9 @@ class SenkPolyTools(object):
 		with open(fname, "w", newline='') as fp:
 			csvw = csv.writer(fp, dialect='excel', delimiter=';')
 			
-			csvw.writerow(['Time (sec)', 'Heart Rate'])
-			for ecg_t, ecg_hr in zip(times, hr):
-				csvw.writerow([ecg_t, ecg_hr])
+			csvw.writerow(["Time (sec)", "Heart Rate", "R-R Distance"])
+			for ecg_t, ecg_hr, rr_dist in zip(times, hr, ecg_dists):
+				csvw.writerow([ecg_t, ecg_hr, rr_dist])
 		
 		print("OK")
 	
@@ -483,14 +496,28 @@ class SenkPolyTools(object):
 	def exportSenkTcd(self, edfc, chn_num):
 		chn_n = edfc.data_labels[chn_num]
 		data = edfc.data[chn_num]
+		tcd_freq = edfc.sample_freq[chn_num]
 		
 		print("Channel '{}'... ".format(chn_n), end="")
 		
 		sm_data = spt.smoothByAvg(data)
+		
+		# export data after minimal noise reduction
+		if self.export_nr_raw:
+			fname = os.path.join(self.results_base_path, "{}_{}_nr_raw.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				
+				csvw.writerow(['Time (sec)', 'Data Value'])
+				for sm_d_i, dv in enumerate(sm_data):
+					csvw.writerow([sm_d_i/tcd_freq, dv])
+		
+		# find minima, maxima
 		tcd_mins, tcd_maxes = spt.findExtrema(sm_data)
 		
+		# 0.5 Hz sampling (after interpolation)
 		sm_data_len = len(sm_data)
-		tcd_sampling = int(edfc.sample_freq[chn_num]*0.5) # 500 Hz * 0.5
+		tcd_sampling = int(tcd_freq*0.5) # 500 Hz * 0.5
 		interp_x = [ix for ix in range(0, sm_data_len, tcd_sampling)]
 		
 		tcd_interp_mins = spt.interpolate(tcd_mins, interp_x)
@@ -522,7 +549,7 @@ class SenkPolyTools(object):
 			
 			for tcd_mn, tcd_mx, tcd_imn_a, tcd_imx_a in zip(tcd_interp_mins, tcd_interp_maxes, tcd_imins_avg, tcd_immaxes_avg):
 				csvw.writerow([
-					tcd_mn[0]/edfc.sample_freq[chn_num],
+					tcd_mn[0]/tcd_freq,
 					tcd_mx[1],
 					tcd_mn[1],
 					(tcd_mx[1] + 2*tcd_mn[1])/3,
@@ -538,14 +565,26 @@ class SenkPolyTools(object):
 	def exportSenkAbp(self, edfc, chn_num):
 		chn_n = edfc.data_labels[chn_num]
 		data = edfc.data[chn_num]
+		abp_freq = edfc.sample_freq[chn_num]
 		
 		print("Channel '{}'... ".format(chn_n), end="")
 		
 		sm_data = spt.smoothByAvg(data, 8)
+		
+		# export data after minimal noise reduction
+		if self.export_nr_raw:
+			fname = os.path.join(self.results_base_path, "{}_{}_nr_raw.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				
+				csvw.writerow(['Time (sec)', 'Data Value'])
+				for sm_d_i, dv in enumerate(sm_data):
+					csvw.writerow([sm_d_i/abp_freq, dv])
+		
+		# find minima, maxima
 		abp_mins, abp_maxes = spt.findExtrema(sm_data)
 		
 		# sampling settings
-		abp_freq = edfc.sample_freq[chn_num]
 		sm_data_len = len(sm_data)
 		abp_sampling = int(abp_freq*0.5) # 500 Hz * 0.5
 		interp_x = [ix for ix in range(0, sm_data_len, abp_sampling)]
@@ -604,13 +643,24 @@ class SenkPolyTools(object):
 	def exportSenkCo2(self, edfc, chn_num):
 		chn_n = edfc.data_labels[chn_num]
 		data = edfc.data[chn_num]
+		co2_freq = edfc.sample_freq[chn_num]
 		
 		print("Channel '{}'... ".format(chn_n), end="")
 		
 		sm_data = spt.smoothByAvg(data, 8)
 		
+		# export data after minimal noise reduction
+		if self.export_nr_raw:
+			fname = os.path.join(self.results_base_path, "{}_{}_nr_raw.txt".format(edfc.file_basename, chn_n.replace(' ', '')))
+			with open(fname, "w", newline='') as fp:
+				csvw = csv.writer(fp, dialect='excel', delimiter=';')
+				
+				csvw.writerow(['Time (sec)', 'Data Value'])
+				for sm_d_i, dv in enumerate(sm_data):
+					csvw.writerow([sm_d_i/co2_freq, dv])
+		
+		# 0.5 Hz sampling parameters
 		sm_data_len = len(sm_data)
-		co2_freq = edfc.sample_freq[chn_num]
 		co2_sampling = int(co2_freq*0.5) # 500 Hz * 0.5
 		interp_x = [ix for ix in range(0, sm_data_len, co2_sampling)]
 		
@@ -659,11 +709,21 @@ if __name__ == '__main__':
 	argp = argparse.ArgumentParser(description="Build the global ComPPI network and export various subnetworks of it.")
 	argp.add_argument(
 		'-edf',
-		help="The name of the input EDF file (must be in the ./data folder)")
+		required = True,
+		help="The name of the input EDF file (only the file name, and it must be in the ./data/ folder)")
+	argp.add_argument(
+		'-n', '--nr_raw',
+		action='store_true',
+		help="Optional parameter to specify additional outputs. Currently 'nr_raw' is implemented, which outputs the raw data after minimal noise reduction (besides the normal output).")
 	args = argp.parse_args()
 	
 	spt = SenkPolyTools()
 	edfc = spt.loadEdf(args.edf)
 	
 	spt.exportAnnotations(edfc)
+	
+	if args.nr_raw:
+		spt.export_nr_raw = True
+		print("Raw data with minimal noise reduction will be exported.")
+	
 	spt.processSenkEdf(edfc)
