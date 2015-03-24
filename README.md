@@ -1,7 +1,7 @@
-SenkPolyTools v0.1 Alpha
+SenkPolyTools v0.2 Alpha
 =============
 
-SenkPolyTools is an EDF(+) parser and analyzer for the SE Neurology Clinic. It is in early experimental phase.
+SenkPolyTools is an EDF(+) parser and analyzer written in Python 3 for the SE Neurology Clinic. It is in early experimental phase.
 
 Requirements
 ------------
@@ -46,6 +46,8 @@ Usage
 
 5. Find the results in the ./results directory.
 
+The raw data with minimal noise reduction can be exported too. Specify the -n (or --nr_raw) flag:
+	$ python3 senk_poly_tools.py -n -edf your_input_file.edf
 
 Notes
 -----
