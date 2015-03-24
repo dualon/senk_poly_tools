@@ -2,6 +2,7 @@ data/*
 !osas2002plusqrs.edf
 results/*
 archives
+docs/autonom_diszfunkc_vizsg_valsalv_parkinsonban.docx
 
 __pycache__
 *.komodoproject
