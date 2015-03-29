@@ -1,5 +1,5 @@
 SenkPolyTools v0.2 Alpha
-=============
+========================
 
 SenkPolyTools is an EDF(+) parser and analyzer written in Python 3 for the SE Neurology Clinic. It is in early experimental phase.
 
@@ -37,20 +37,29 @@ Usage
 
 1. Put your input EDF files in the ./data folder.
 2. Create the ./results folder if it doesn't exist.
-3. Open the command line and navigate to ./senk_poly_tools (so now you are in some_path/senk_poly_tools/senk_poly_tools/)
+3. Open the command line and navigate to ./senk_poly_tools (so now you are in some_path/senk_poly_tools/)
 4. Run the tool as
 	
-	$ python3 senk_poly_tools.py -edf your_input_file.edf
+	$ python3 senk_poly_tools/senk_poly_tools.py -edf your_input_file.edf
 
 	Where "your_input_file.edf" is the input file ("./data/your_input_file.edf")
 
 5. Find the results in the ./results directory.
 
-The raw data with minimal noise reduction can be exported too. Specify the -n (or --nr_raw) flag:
-	$ python3 senk_poly_tools.py -n -edf your_input_file.edf
+Command Line Parameters
+-----------------------
+-s --sampling_frequency:
+	Optional parameter to specify the sampling frequency (in Hz) at which the processed/interpolated data will be exported. The value should be a number larger than zero (float or integer). Default sampling frequency = 0.5
+	
+	$ python3 senk_poly_tools/senk_poly_tools.py -s 10 -edf your_input_file.edf
+
+-r --raw:
+	Optional flag to export the raw data with minimal noise reduction. Processed data will also be exported.
+	
+	$ python3 senk_poly_tools/senk_poly_tools.py -n -edf your_input_file.edf
 
 Notes
 -----
 
 The European Data Format (EDF and EDFPlus) specifications are available at:
-	http://www.edfplus.info/index.html
+	[http://www.edfplus.info/index.html](http://www.edfplus.info/index.html)

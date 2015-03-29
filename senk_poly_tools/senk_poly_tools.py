@@ -25,16 +25,26 @@ from edf_container import EdfContainer # senk_poly_tools.
 
 class SenkPolyTools(object):
 	
-	annot_label 		= 'EDF Annotations'
-	results_base_path 	= os.path.abspath(os.path.join(
-							os.path.dirname(__file__),
-							'..',
-							'results')
-							)
-	export_nr_raw		= False
 	
+	def __init__(self, sampling_freq = 0.5, export_raw = False, annot_label = 'EDF Annotations'):
+		""" Sampling frequency (in Hz) determines the sampling rate of the processed data. """
+		
+		print("SenkPolyTools initiating...", end = " ")
+		
+		self.results_base_path 	= os.path.abspath(os.path.join(
+			os.path.dirname(__file__),
+			'..',
+			'results'
+		))
+		self.annot_label		= annot_label
+		self.export_nr_raw		= (True if export_raw else False)
+		self.sampling_freq		= self.filterSamplingFreq(sampling_freq)
+		
+		print("OK")
+	
+
 	def createEdfContainer(self, file_name):
-		""" Open an EDF(+) file and return an empty EdfContainer object. """
+		""" Open an EDF(+) file and return an empty EdfContainer object with the file handler. """
 		
 		print("Creating EDF(+) container... ", end="")
 		
@@ -407,6 +417,51 @@ class SenkPolyTools(object):
 			interpolated_y.append( (sx, iy) )
 		
 		return interpolated_y
+	
+
+	def getSamplingFreq(self):
+		if self.sampling_freq is None:
+			raise ValueError("Sampling frequency has not been set yet! [ getSamplingFreq() ]")
+	
+		return self.sampling_freq
+	
+
+	def filterSamplingFreq(self, f):
+		""" Get or set the global sampling frequency parameter. """
+		
+		if not isinstance(f, float):
+			f = float(f)
+		
+		if f <= 0.0:
+			raise ValueError("Sampling frequency must be larger than zero! [setSamplingFreq({})]".format(f))
+		
+		return f
+	
+
+	def calcSamplingRateFromFreq(self, chn_freq, new_freq):
+		""" Calculate the resampling rate from frequency.
+		
+			The channel data is recorded at a given 'chn_freq' frequency, but the user may want to specify a 'new_freq' sampling frequency. This method returns the index stepping for the new sampling.
+			
+			For example, if
+				chn_freq = 500 (data was recorded at 500 Hz)
+				new_freq = 0.5 (user wants to sample the data at 0.5 Hz)
+			then
+				resampling rate = 1000
+			because 0.5 Hz means 1 measurement per 2 seconds, and since the original data contains 500 records (measurements) per second, we have to take every 1000th record to achieve 0.5 Hz.
+			
+			See also
+			--------
+			SenkPolyTools.setSamplingFreq()
+		"""
+		
+		if new_freq > chn_freq:
+			raise ValueError("Requested sampling frequency can't be higher than the original channel record frequency! [calcSamplingRateFromFreq({}, {})]".format(chn_freq, new_freq))
+		
+		if chn_freq == 0:
+			raise ValueError("Channel record frequency and sampling frequency can't be zero! [calcSamplingRateFromFreq({}, {})]".format(chn_freq, new_freq))
+		
+		return int(round(chn_freq/new_freq))
 
 
 	def exportAnnotations(self, edfc):
@@ -517,7 +572,7 @@ class SenkPolyTools(object):
 		
 		# 0.5 Hz sampling (after interpolation)
 		sm_data_len = len(sm_data)
-		tcd_sampling = int(tcd_freq*0.5) # 500 Hz * 0.5
+		tcd_sampling = self.calcSamplingRateFromFreq(tcd_freq, self.getSamplingFreq())
 		interp_x = [ix for ix in range(0, sm_data_len, tcd_sampling)]
 		
 		tcd_interp_mins = spt.interpolate(tcd_mins, interp_x)
@@ -586,7 +641,7 @@ class SenkPolyTools(object):
 		
 		# sampling settings
 		sm_data_len = len(sm_data)
-		abp_sampling = int(abp_freq*0.5) # 500 Hz * 0.5
+		abp_sampling = self.calcSamplingRateFromFreq(abp_freq, self.getSamplingFreq())
 		interp_x = [ix for ix in range(0, sm_data_len, abp_sampling)]
 		
 		# heart rate from ABP for every half second, because ECG channel is often missing...
@@ -661,7 +716,7 @@ class SenkPolyTools(object):
 		
 		# 0.5 Hz sampling parameters
 		sm_data_len = len(sm_data)
-		co2_sampling = int(co2_freq*0.5) # 500 Hz * 0.5
+		co2_sampling = self.calcSamplingRateFromFreq(co2_freq, self.getSamplingFreq())
 		interp_x = [ix for ix in range(0, sm_data_len, co2_sampling)]
 		
 		# respiratory peaks
@@ -707,23 +762,26 @@ class SenkPolyTools(object):
 
 if __name__ == '__main__':
 	argp = argparse.ArgumentParser(description="Build the global ComPPI network and export various subnetworks of it.")
+	
 	argp.add_argument(
 		'-edf',
 		required = True,
 		help="The name of the input EDF file (only the file name, and it must be in the ./data/ folder)")
+	
 	argp.add_argument(
-		'-n', '--nr_raw',
+		'-s', '--sampling_frequency',
+		help="Optional parameter to specify the sampling frequency (in Hz) at which the processed/interpolated data will be exported.\nThe value should be a number larger than zero (float or integer).\nDefault sampling frequency = 0.5")
+	
+	argp.add_argument(
+		'-r', '--raw',
 		action='store_true',
-		help="Optional parameter to specify additional outputs. Currently 'nr_raw' is implemented, which outputs the raw data after minimal noise reduction (besides the normal output).")
+		help="Optional flag to export the raw data with minimal noise reduction (processed data will also be exported).")
+	
 	args = argp.parse_args()
 	
-	spt = SenkPolyTools()
+	spt = SenkPolyTools(args.sampling_frequency, args.raw)
 	edfc = spt.loadEdf(args.edf)
 	
 	spt.exportAnnotations(edfc)
-	
-	if args.nr_raw:
-		spt.export_nr_raw = True
-		print("Raw data with minimal noise reduction will be exported.")
 	
 	spt.processSenkEdf(edfc)
