@@ -56,7 +56,7 @@ Command Line Parameters
 -r --raw:
 	Optional flag to export the raw data with minimal noise reduction. Processed data will also be exported.
 	
-	$ python3 senk_poly_tools/senk_poly_tools.py -n -edf your_input_file.edf
+	$ python3 senk_poly_tools/senk_poly_tools.py -r -edf your_input_file.edf
 
 Notes
 -----
