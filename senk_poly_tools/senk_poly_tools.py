@@ -429,6 +429,9 @@ class SenkPolyTools(object):
 	def filterSamplingFreq(self, f):
 		""" Get or set the global sampling frequency parameter. """
 		
+		if not f:
+			f = 0.5
+		
 		if not isinstance(f, float):
 			f = float(f)
 		
