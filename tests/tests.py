@@ -9,6 +9,19 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from senk_poly_tools.senk_poly_tools import SenkPolyTools
 
 class SenkPolyToolsTests(SenkPolyTools):
+	
+	colors = [
+		'#fff44f', # light yellow
+		'#FF8A00', # orange
+		'#AA0000', # red
+		'#990000', # maroon
+		'#11BEFF', # teal
+		'#00AA00', # green
+		'#813D00', # brown
+		'#707070', # grey
+		'#1F0064', # dark blue
+		'#000000' # black
+	]
 
 	def testCreateEdfContainer(self, fname):
 		print("createEdfContainer(): {}".format(fname))
@@ -138,7 +151,191 @@ class SenkPolyToolsTests(SenkPolyTools):
 		
 		plt.savefig(os.path.join('..', 'results', '{}.png'.format(edf.file_basename)))
 		plt.close()
+	
 
+	def drawRawCognData(self, edfc, chn_num, windows):
+		""" Visualize the cognitive tasks from an EDF channel.
+		
+			edfc EdfContainer: an EdfContainer object containing the loaded EDF(+) data
+			chn_num: the number of channel to extract from the container
+			windows: data windows, typically
+		"""
+		lbl = edfc.data_labels[chn_num]
+		data = edfc.data[chn_num]
+		print("testCognTasks(): Channel '{}' loaded, data length: {}".format(lbl, len(data)))
+		
+		colors = [
+			'#fff44f', # light yellow
+			'#FF8A00', # orange
+			'#AA0000', # red
+			'#990000', # maroon
+			'#11BEFF', # teal
+			'#00AA00', # green
+			'#813D00', # brown
+			'#707070', # grey
+			'#1F0064', # dark blue
+			'#000000' # black
+		]
+
+		#window_matrix = []
+		shortest_len = None
+		
+		f,ax = plt.subplots(1,1,figsize=(12,14))
+		for wts, wte, cl in zip(windows, colors):
+			w1 = int(wts*500)
+			w2 = int(wte*500)
+			
+			w = data[w1:w2]
+			window_matrix.append(w)
+			
+			#_, co2_maxima_w = spt.findExtrema(w, hwl=2000) # window: 150
+			
+			dl = len(w)
+			
+			w1_x = []
+			w1_y = []
+			for mx_x, mx_y in co2_interp_maxes: # co2_maxima_w
+				w1_x.append(mx_x)
+				w1_y.append(mx_y)
+			
+			#print("w1_x len: {}, x: \n{}, y: \n{}".format(len(w1_x), w1_x, w1_y))
+			
+			if shortest_len is not None:
+				shortest_len = min(len(w1_x), shortest_len)
+			else:
+				shortest_len = len(w1_x)
+			
+			maximas.append(w1_y)
+			
+			ax.plot(w1_x, w1_y, color=cl) #, alpha=0.5
+			#ax.vlines(w1_x, 20.0, 40.0, color=cl, alpha=0.15)
+		
+		#print(len(maximas[0]))
+		
+		maxima_matrix = []
+		for r in maximas:
+			maxima_matrix.append(r[:shortest_len])
+		
+		maxima_np_matrix = np.matrix(maxima_matrix)
+		print("matrix dim: {}".format(maxima_np_matrix.shape))
+		
+		w_np_mtx_mean = np.array(maxima_np_matrix.mean(0))
+		print("mean dim: {}".format(w_np_mtx_mean.shape))
+		
+		print(len([x for x in range(0, 170*250, 250)]))
+		print(len(w_np_mtx_mean[0]))
+		
+		#w_np_mtx_mean[0].shape[0]*250
+		ax.plot([x for x in range(0, 170*250, 250)], w_np_mtx_mean[0], color='#FF69B4', linewidth=2.0)
+		
+		plt.savefig(os.path.join('results', '{}_interp_w.png'.format(edfc.file_basename)))
+		#plt.savefig(os.path.join('results', '{}_w.png'.format(edfc.file_basename)))
+		plt.close()
+	
+
+	def drawInterpCognData(self, edfc, chn_num, windows):
+		""" Visualize the cognitive tasks from an EDF channel.
+		
+			edfc EdfContainer: an EdfContainer object containing the loaded EDF(+) data
+			chn_num: the number of channel to extract from the container
+			windows: data windows, typically
+		"""
+		lbl = edfc.data_labels[chn_num]
+		data = edfc.data[chn_num]
+		print("testCognTasks(): Channel '{}' loaded, data length: {}".format(lbl, len(data)))
+		
+
+
+		#window_matrix = []
+		maximas = []
+		shortest_len = None
+		
+		f,ax = plt.subplots(1,1,figsize=(12,14))
+		for wts, wte, cl in windows:
+			w1 = int(wts*500)
+			w2 = int(wte*500)
+			
+			w = D[w1:w2]
+			#window_matrix.append(w)
+			
+			_, co2_maxima_w = spt.findExtrema(w, hwl=2000) # window: 150
+			
+			dl = len(w)
+			#print("w len: {}".format(dl))
+			co2_sampling = int(500*0.5) # 500 Hz * 0.5
+			interp_x = [ix for ix in range(0, dl, co2_sampling)]
+			
+			co2_interp_maxes = spt.interpolate(co2_maxima_w, interp_x)
+			
+			w1_x = []
+			w1_y = []
+			for mx_x, mx_y in co2_interp_maxes: # co2_maxima_w
+				w1_x.append(mx_x)
+				w1_y.append(mx_y)
+			
+			#print("w1_x len: {}, x: \n{}, y: \n{}".format(len(w1_x), w1_x, w1_y))
+			
+			if shortest_len is not None:
+				shortest_len = min(len(w1_x), shortest_len)
+			else:
+				shortest_len = len(w1_x)
+			
+			maximas.append(w1_y)
+			
+			ax.plot(w1_x, w1_y, color=cl) #, alpha=0.5
+			#ax.vlines(w1_x, 20.0, 40.0, color=cl, alpha=0.15)
+		
+		#print(len(maximas[0]))
+		
+		maxima_matrix = []
+		for r in maximas:
+			maxima_matrix.append(r[:shortest_len])
+		
+		maxima_np_matrix = np.matrix(maxima_matrix)
+		print("matrix dim: {}".format(maxima_np_matrix.shape))
+		
+		w_np_mtx_mean = np.array(maxima_np_matrix.mean(0))
+		print("mean dim: {}".format(w_np_mtx_mean.shape))
+		
+		print(len([x for x in range(0, 170*250, 250)]))
+		print(len(w_np_mtx_mean[0]))
+		
+		#w_np_mtx_mean[0].shape[0]*250
+		ax.plot([x for x in range(0, 170*250, 250)], w_np_mtx_mean[0], color='#FF69B4', linewidth=2.0)
+		
+		plt.savefig(os.path.join('results', '{}_interp_w.png'.format(edfc.file_basename)))
+		#plt.savefig(os.path.join('results', '{}_w.png'.format(edfc.file_basename)))
+		plt.close()
+
+
+	def drawRrCognData(self, edfc, chn_num, windows, fname = 'rr.png'):
+
+		lbl = edfc.data_labels[chn_num]
+		data = edfc.data[chn_num]
+		print("drawRrCognData(): Channel '{}' loaded, data length: {}".format(lbl, len(data)))
+		
+		f,ax = plt.subplots(1,1,figsize=(12,14))
+		#ax.set_ylim([30.0, 46.0])
+		
+		for wts, wte, cl in zip(windows, self.colors):
+			w1 = int(wts*500)
+			w2 = int(wte*500)
+			
+			w = data[w1:w2]
+			
+			_, maxima = spt.findExtrema(w, hwl=2000)
+			max_idx, __ = zip(*maxima)
+			idx_dists = spt.indexDists(max_idx)
+			rr = [60/(dist/500) for dist in idx_dists]
+			
+			#print("RR: {}".format(rr[:10]))
+
+			ax.plot(rr[1:], color=cl)  # leave out the first value as it is usually an artifact
+		
+		plt.savefig(os.path.join('results', '{}_{}'.format(edfc.file_basename, fname)))
+		plt.close()
+		print("OK")
+	
 	
 	def testSmoothedExtrema(self, e):
 		print("visualize smoothed first channel of real data (smoothing window: 3, findExtrema half-window 100)...", end=" ")
@@ -177,7 +374,6 @@ class SenkPolyToolsTests(SenkPolyTools):
 		
 		print("[ OK ]")
 	
-
 
 if __name__ == "__main__":
 	print("SenkPolyToolsTests() init:")
