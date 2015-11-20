@@ -558,7 +558,7 @@ class SenkPolyTools(object):
 		
 		print("Channel '{}'... ".format(chn_n), end="")
 		
-		sm_data = spt.smoothByAvg(data)
+		sm_data = spt.smoothByAvg(data, 30)
 		
 		# export data after minimal noise reduction
 		if self.export_nr_raw:
